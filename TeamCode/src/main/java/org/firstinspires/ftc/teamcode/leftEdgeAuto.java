@@ -57,7 +57,7 @@ public class leftEdgeAuto extends LinearOpMode {
 
         waitForStart();
 
-        // Start angle is now 0° natively thanks to imu.resetYaw()
+        // Start angle is now 0 natively thanks to imu.resetYaw()
         move(18, 0.25);
         turn(-90);
         move(110, 0.25);
