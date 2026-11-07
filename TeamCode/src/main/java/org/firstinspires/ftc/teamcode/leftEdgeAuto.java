@@ -77,6 +77,8 @@ public class leftEdgeAuto extends LinearOpMode {
     }
 
     public void shoot() {
+        // Open-loop full power. Leave this until launcher velocity control is validated.
+        // Do not enable uncalibrated velocity mode in autonomous.
         outtake1.setPower(1);
         outtake2.setPower(-1);
         midtake.setPower(-1);
