@@ -1,8 +1,6 @@
-//2026 league meet one Nov 7 autonomous programming.
-//pedropathing wasn't recognizing a dead wheel so this was a quick fix.
-//Uses built in wheel encoders and the imu in order to navigate the field.
-//Made by 12820 Wagner Trilobytes programming team
-//Hayden, Arthur, Emarie, Derek, Jacob, Dalton.
+// 2026 league meet one Nov 7 autonomous programming.
+// Fixed motor response, proportional turning, heading drift, and long-distance hang-up bug.
+// Made by 12820 Wagner Trilobytes programming team (Modified/Optimized)
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -44,7 +42,6 @@ public class rightEdgeAuto extends LinearOpMode {
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(logoDirection, usbDirection));
         imu.initialize(parameters);
 
-        // Resets the IMU heading to 0 degrees right at initialization
         imu.resetYaw();
 
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -57,16 +54,22 @@ public class rightEdgeAuto extends LinearOpMode {
 
         waitForStart();
 
-        // Start angle is now 0° natively thanks to imu.resetYaw()
-        move(18, 0.25);
+        // Autonomous path sequence
+        move(18, 0.5);
         turn(-90);
-        move(110, 0.25);
+        move(105, 0.5);
         turn(0);
-        move(45, 0.25);
+        move(40, 0.5);
         turn(-90);
 
-        // Shoot does what it says (Hint: it shoots)
         shoot();
+
+        turn(180);
+        move(40, 0.5);
+        turn(90);
+        move(105, 0.5);
+        turn(180);
+        move(18, 0.5);
 
         while (opModeIsActive()) {
             // Keep looping while op mode is active
@@ -76,7 +79,9 @@ public class rightEdgeAuto extends LinearOpMode {
     public void shoot() {
         outtake1.setPower(1);
         outtake2.setPower(-1);
-        sleep(10000);
+        midtake.setPower(-1);
+        sleep(3000);
+        midtake.setPower(0);
         outtake1.setPower(0);
         outtake2.setPower(0);
     }
@@ -90,33 +95,38 @@ public class rightEdgeAuto extends LinearOpMode {
     }
 
     public void turn(int targetAngle) {
-        // Set power to off (backup in case of infinite loop causing motors to continuously spin)
         frontLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         frontRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        frontLeftDrive.setPower(0);
-        frontRightDrive.setPower(0);
-        backLeftDrive.setPower(0);
-        backRightDrive.setPower(0);
-
         int angleTolerance = 2;
-        YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
-        double yaw = orientation.getYaw(AngleUnit.DEGREES);
-        double error = targetAngle - yaw;
+        double kP = 0.022;
+        double minPower = 0.18;
+        double maxPower = 0.45;
 
-        // Turn until within angle tolerance
-        while (!(Math.abs(error) < angleTolerance) && opModeIsActive()){
-            orientation = imu.getRobotYawPitchRollAngles();
-            yaw = orientation.getYaw(AngleUnit.DEGREES);
-            error = targetAngle - yaw;
+        while (opModeIsActive()) {
+            YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
+            double yaw = orientation.getYaw(AngleUnit.DEGREES);
+            double error = targetAngle - yaw;
+
+            if (Math.abs(error) <= angleTolerance) {
+                break;
+            }
 
             telemetry.addData("Turning to", targetAngle);
             telemetry.addData("Current Yaw", yaw);
+            telemetry.addData("Error", error);
             telemetry.update();
 
-            double turnSpeed = Math.signum(error) * 0.3;
+            double turnSpeed = error * kP;
+
+            if (Math.abs(turnSpeed) < minPower) {
+                turnSpeed = Math.signum(turnSpeed) * minPower;
+            }
+            if (Math.abs(turnSpeed) > maxPower) {
+                turnSpeed = Math.signum(turnSpeed) * maxPower;
+            }
 
             frontLeftDrive.setPower(-turnSpeed);
             frontRightDrive.setPower(turnSpeed);
@@ -124,79 +134,66 @@ public class rightEdgeAuto extends LinearOpMode {
             backRightDrive.setPower(turnSpeed);
         }
 
-        // Stop motors immediately upon reaching target angle
         frontLeftDrive.setPower(0);
         frontRightDrive.setPower(0);
         backLeftDrive.setPower(0);
         backRightDrive.setPower(0);
+
+        sleep(300);
     }
 
     public void move(int distance, double speed) {
-        // 12.57 inches per revolution | 384.5 ticks per rotation | ~30.6 ticks per inch
-        int angleTolerance = 2;
-
-        // Failsafe to stop unwanted power
         frontLeftDrive.setPower(0);
         frontRightDrive.setPower(0);
         backLeftDrive.setPower(0);
         backRightDrive.setPower(0);
 
-        // Reset encoder values back to 0
+        // Reset encoders
         frontLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         frontRightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         backLeftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        // Turn encoders back on
+        // Use RUN_USING_ENCODER instead of RUN_TO_POSITION to prevent hanging
         frontLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         frontRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        // Set target positions
         int targetTicks = (int)(distance * 26);
-        frontLeftDrive.setTargetPosition(targetTicks);
-        frontRightDrive.setTargetPosition(targetTicks);
-        backLeftDrive.setTargetPosition(targetTicks);
-        backRightDrive.setTargetPosition(targetTicks);
 
-        // Run to position
-        frontLeftDrive.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        frontRightDrive.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        backLeftDrive.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        backRightDrive.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        YawPitchRollAngles startOrientation = imu.getRobotYawPitchRollAngles();
+        double targetHeading = startOrientation.getYaw(AngleUnit.DEGREES);
 
-        frontLeftDrive.setPower(speed);
-        frontRightDrive.setPower(speed);
-        backLeftDrive.setPower(speed);
-        backRightDrive.setPower(speed);
+        int currentPosition = 0;
 
-        // Maintain straight heading relative to initial 0° heading while driving
-        while (opModeIsActive() && (frontLeftDrive.isBusy() || backRightDrive.isBusy() || backLeftDrive.isBusy() || frontRightDrive.isBusy())) {
+        // Loop runs until encoder tick count matches target distance, preventing infinite stalls
+        while (opModeIsActive() && Math.abs(currentPosition) < targetTicks) {
+            currentPosition = Math.abs(frontLeftDrive.getCurrentPosition());
+
             YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
             double yaw = orientation.getYaw(AngleUnit.DEGREES);
 
             telemetry.addData("Path", "Driving to position");
+            telemetry.addData("Target Ticks", targetTicks);
+            telemetry.addData("Current Ticks", currentPosition);
             telemetry.addData("Current Yaw", yaw);
             telemetry.update();
 
-            // Simple proportional correction if drifting off 0° heading
-            if (yaw < 0){
-                frontLeftDrive.setPower(speed);
-                frontRightDrive.setPower(speed * 1.3);
-                backLeftDrive.setPower(speed);
-                backRightDrive.setPower(speed * 1.3);
-            } else if (yaw > 0){
-                frontLeftDrive.setPower(speed * 1.3);
-                frontRightDrive.setPower(speed);
-                backLeftDrive.setPower(speed * 1.3);
-                backRightDrive.setPower(speed);
-            } else {
-                frontLeftDrive.setPower(speed);
-                frontRightDrive.setPower(speed);
-                backLeftDrive.setPower(speed);
-                backRightDrive.setPower(speed);
-            }
+
+            double headingError = targetHeading - yaw;
+            while (headingError > 180) headingError -= 360;
+            while (headingError < -180) headingError += 360;
+
+            double correction = headingError * 0.03;
+
+            double leftPower = speed - correction;
+            double rightPower = speed + correction;
+
+            frontLeftDrive.setPower(leftPower);
+            backLeftDrive.setPower(leftPower);
+            frontRightDrive.setPower(rightPower);
+            backRightDrive.setPower(rightPower);
         }
 
         // Stop motors after travel
