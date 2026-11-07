@@ -21,34 +21,21 @@ public class haydenTele extends LinearOpMode {
     private DcMotor frontRightDrive = null;
 
     private DcMotor intake = null;
-
+    private DcMotor outtake1 = null;
+    private DcMotor outtake2 = null;
+    private DcMotor midtake = null;
 
     @Override
     public void runOpMode() {
-        frontLeftDrive = hardwareMap.get(DcMotor.class, "frontLeft");
-        backLeftDrive = hardwareMap.get(DcMotor.class, "backLeft");
-        frontRightDrive = hardwareMap.get(DcMotor.class, "frontRight");
-        backRightDrive = hardwareMap.get(DcMotor.class, "backRight");
+        frontLeftDrive = hardwareMap.get(DcMotor.class, "frontLeftDrive");
+        backLeftDrive = hardwareMap.get(DcMotor.class, "backLeftDrive");
+        frontRightDrive = hardwareMap.get(DcMotor.class, "frontRightDrive");
+        backRightDrive = hardwareMap.get(DcMotor.class, "backRightDrive");
         intake = hardwareMap.get(DcMotor.class, "intake");
-        WebcamName webcam = hardwareMap.get(WebcamName.class, "Webcam 1");
-        PredominantColorProcessor colorCamera =
-                new PredominantColorProcessor.Builder()
-                        .setRoi(ImageRegion.asUnityCenterCoordinates(
-                                -0.20, 0.20, 0.20, -0.20))
-                        .setSwatches(
-                                PredominantColorProcessor.Swatch.RED,
-                                PredominantColorProcessor.Swatch.BLUE,
-                                PredominantColorProcessor.Swatch.YELLOW,
-                                PredominantColorProcessor.Swatch.BLACK,
-                                PredominantColorProcessor.Swatch.WHITE)
-                        .build();
+        outtake1 = hardwareMap.get(DcMotor.class, "outtake1");
+        outtake2 = hardwareMap.get(DcMotor.class, "outtake2");
+        midtake = hardwareMap.get(DcMotor.class, "midtake");
 
-        VisionPortal visionPortal = new VisionPortal.Builder()
-                .setCamera(webcam)
-                .setCameraResolution(new Size(1280, 720))
-                .addProcessor(colorCamera)
-                .build();
-        //servo = hardwareMap.get(Servo.class, "servo");
 
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -56,8 +43,6 @@ public class haydenTele extends LinearOpMode {
         backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
         telemetry.addData("Status", "Initialized");
-        telemetry.addData("FEM", "BOY");
-
         telemetry.update();
         waitForStart();
 
@@ -65,14 +50,22 @@ public class haydenTele extends LinearOpMode {
 
             double max;
             double co;
+            double intakePower;
             double forward   = -gamepad1.left_stick_y;
             double strafe =  gamepad1.left_stick_x;
             double yaw     =  gamepad1.right_stick_x;
-            double frontLeftPower  = (forward + (strafe * -1) + (yaw * 1.1));
-            double frontRightPower = (forward - (strafe * -1) - (yaw * 1.1));
-            double backLeftPower   = (forward - (strafe * -1) + (yaw * 1.1));
-            double backRightPower  = (forward + (strafe * -1) - (yaw * 1.1));
-            double intakePower = gamepad1.right_trigger * -1;
+            double frontLeftPower  = (forward + (strafe * 1) + (yaw * 1.1));
+            double frontRightPower = (forward - (strafe * 1) - (yaw * 1.1));
+            double backLeftPower   = (forward - (strafe * 1) + (yaw * 1.1));
+            double backRightPower  = (forward + (strafe * 1) - (yaw * 1.1));
+            if (!(gamepad2.right_bumper)) {
+                intakePower = gamepad2.right_trigger * -1;
+            } else {
+                intakePower = 1;
+            }
+            double outtake1power = gamepad2.left_trigger * 1;
+            double outtake2power = gamepad2.left_trigger * -1;
+
             max = Math.max(Math.abs(frontLeftPower), Math.abs(frontRightPower));
             max = Math.max(max, Math.abs(backLeftPower));
             max = Math.max(max, Math.abs(backRightPower));
@@ -88,22 +81,26 @@ public class haydenTele extends LinearOpMode {
             } else {
                 co = 1;
             }
+            if (gamepad2.left_bumper){
+                midtake.setPower(-1);
+            } else {
+                midtake.setPower(0);
+            }
+
             intake.setPower(intakePower);
             frontLeftDrive.setPower(frontLeftPower * co);
             frontRightDrive.setPower(frontRightPower * co);
             backLeftDrive.setPower(backLeftPower * co);
             backRightDrive.setPower(backRightPower * co);
+            outtake1.setPower(outtake1power);
+            outtake2.setPower(outtake2power);
             telemetry.addData("power bl",backLeftPower);
             telemetry.addData("power fl",frontLeftPower);
             telemetry.addData("power br",backRightPower);
             telemetry.addData("power fr",frontRightPower);
-            PredominantColorProcessor.Result result = colorCamera.getAnalysis();
 
-            telemetry.addData("Camera color", result.closestSwatch);
-            telemetry.addData("Camera RGB", "(%d, %d, %d)",
-                    result.RGB[0], result.RGB[1], result.RGB[2]);
+
             telemetry.update();
         }
-        visionPortal.close();
     }
 }
